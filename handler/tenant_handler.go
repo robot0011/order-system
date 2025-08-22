@@ -22,7 +22,9 @@ func CreateTenant(c *fiber.Ctx) error {
 	}
 
 	// Get the user who is creating the tenant
-	userID := c.Locals("user_id").(uint) // Assuming user_id is stored in JWT or session
+	username := c.Locals("username")
+	var user models.User
+	database.DB.Where("username = ?", username).First(&user)
 
 	// Create the tenant
 	tenant := models.Tenant{
@@ -31,7 +33,7 @@ func CreateTenant(c *fiber.Ctx) error {
 		Location:    input.Location,
 		Logo:        input.Logo,
 		Status:      "Active", // Default status is "Active"
-		OwnerID:     userID,   // Set the owner of the tenant
+		OwnerID:     user.ID,  // Set the owner of the tenant
 	}
 
 	// Save the tenant in the database
@@ -44,6 +46,16 @@ func CreateTenant(c *fiber.Ctx) error {
 		"message": "Tenant created successfully",
 		"tenant":  tenant,
 	})
+}
+
+func GetTenants(c *fiber.Ctx) error {
+	var tenants []models.Tenant
+	err := database.DB.Find(&tenants).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Could not retrieve tenants")
+	}
+
+	return c.JSON(tenants)
 }
 
 func SelectTenantAndRole(c *fiber.Ctx) error {

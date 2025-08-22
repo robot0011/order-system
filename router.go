@@ -6,13 +6,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func setupRoutes(app *fiber.App) {
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"message": "Welcome to the Notes API",
-		})
+func healthCheck(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"status":  "ok",
+		"message": "Welcome to the Order-System API",
 	})
+}
+
+func setupRoutes(app *fiber.App) {
+	app.Get("/health", healthCheck)
 	api := app.Group("/api")
 
 	user := api.Group("/user")
@@ -24,6 +26,7 @@ func setupRoutes(app *fiber.App) {
 
 	tenant := api.Group("/tenant")
 	tenant.Post("/create", handler.ProtectRoute, handler.CreateTenant)
+	tenant.Get("/", handler.ProtectRoute, handler.GetTenants)
 	tenant.Get("/:tenant_id/:role_id", handler.ProtectRoute, handler.SelectTenantAndRole)
 	tenant.Post("/:tenant_id/menu-items", handler.ProtectRoute, handler.CreateMenuItem)
 	tenant.Get("/:tenant_id/menu-items", handler.ProtectRoute, handler.GetMenuItems)
