@@ -27,7 +27,7 @@ func setupRoutes(app *fiber.App) {
 	tenant := api.Group("/tenant")
 	tenant.Post("/create", handler.ProtectRoute, handler.CreateTenant)
 	tenant.Get("/", handler.ProtectRoute, handler.GetTenants)
-	tenant.Get("/:tenant_id/:role_id", handler.ProtectRoute, handler.SelectTenantAndRole)
+	tenant.Get("/:tenant_id/role_id/:role_id", handler.ProtectRoute, handler.SelectTenantAndRole)
 	tenant.Post("/:tenant_id/menu-items", handler.ProtectRoute, handler.CreateMenuItem)
 	tenant.Get("/:tenant_id/menu-items", handler.ProtectRoute, handler.GetMenuItems)
 	tenant.Delete("/:tenant_id/menu-items/:item_id", handler.ProtectRoute, handler.DeleteMenuItem)

@@ -71,7 +71,9 @@ func SelectTenantAndRole(c *fiber.Ctx) error {
 	var tasks []models.Task
 	database.DB.Where("role_id = ?", roleID).Find(&tasks)
 
-	userID := c.Locals("user_id").(uint)
+	username := c.Locals("username")
+	var user models.User
+	database.DB.Where("username = ?", username).First(&user)
 
 	// Convert tenantID and roleID from string to uint
 	var tenantIDUint uint
@@ -84,7 +86,7 @@ func SelectTenantAndRole(c *fiber.Ctx) error {
 	}
 
 	userTenantRole := models.UserTenantRole{
-		UserID:   userID,
+		UserID:   user.ID,
 		TenantID: tenantIDUint,
 		RoleID:   roleIDUint,
 		Active:   true,
@@ -113,7 +115,7 @@ func CreateMenuItem(c *fiber.Ctx) error {
 
 	// Ensure the tenant exists (optional)
 	var tenant models.Tenant
-	if err := database.DB.Where("id = ?", input.TenantID).First(&tenant).Error; err != nil {
+	if err := database.DB.Where("ID = ?", input.TenantID).First(&tenant).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).SendString("Tenant not found")
 	}
 
@@ -128,6 +130,7 @@ func CreateMenuItem(c *fiber.Ctx) error {
 
 	// Save the menu item to the database
 	if err := database.DB.Create(&menuItem).Error; err != nil {
+		fmt.Println("Error: ", err)
 		return c.Status(fiber.StatusInternalServerError).SendString("Error creating menu item")
 	}
 
