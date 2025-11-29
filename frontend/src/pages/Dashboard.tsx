@@ -1,4 +1,5 @@
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { logout } from '../config'
 import Profile from './Profile'
 import Restaurant from './Restaurant'
 import Tables from './Tables'
@@ -8,11 +9,8 @@ import '../styles/dashboard.css'
 export default function Dashboard() {
   const navigate = useNavigate()
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
-    navigate('/login')
+  const handleLogout = async () => {
+    await logout()
   }
 
   return (

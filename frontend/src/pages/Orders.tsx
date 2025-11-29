@@ -162,26 +162,41 @@ export default function Orders() {
       await fetchOrders();
       if (!isActive) return;
 
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const wsProtocol = API_URL.startsWith('https') ? 'wss' : 'ws';
-      const host = API_URL.replace(/^https?:\/\//, '');
-      socket = new WebSocket(`${wsProtocol}://${host}/ws/orders?token=${encodeURIComponent(token)}`);
-
-      messageHandler = (event: MessageEvent) => {
-        try {
-          const orderEvent: OrderEvent = JSON.parse(event.data);
-          handleIncomingOrder(orderEvent.order);
-        } catch (err) {
-          console.error('Failed to parse order event', err);
+      // Get a temporary WebSocket token by making an authenticated request
+      try {
+        const res = await authenticatedFetch(`${API_URL}/api/user/websocket-token`);
+        if (!res.ok) {
+          console.error('Failed to get WebSocket token');
+          return;
         }
-      };
+        const response = await res.json();
+        if (!response.success || !response.data?.websocket_token) {
+          console.error('Failed to get valid WebSocket token');
+          return;
+        }
 
-      errorHandler = (event: Event) => console.warn('Order websocket encountered an error', event);
+        const wsToken = response.data.websocket_token;
 
-      socket.addEventListener('message', messageHandler);
-      socket.addEventListener('error', errorHandler);
+        const wsProtocol = API_URL.startsWith('https') ? 'wss' : 'ws';
+        const host = API_URL.replace(/^https?:\/\//, '');
+        socket = new WebSocket(`${wsProtocol}://${host}/ws/orders?token=${encodeURIComponent(wsToken)}`);
+
+        messageHandler = (event: MessageEvent) => {
+          try {
+            const orderEvent: OrderEvent = JSON.parse(event.data);
+            handleIncomingOrder(orderEvent.order);
+          } catch (err) {
+            console.error('Failed to parse order event', err);
+          }
+        };
+
+        errorHandler = (event: Event) => console.warn('Order websocket encountered an error', event);
+
+        socket.addEventListener('message', messageHandler);
+        socket.addEventListener('error', errorHandler);
+      } catch (error) {
+        console.error('Error getting WebSocket token:', error);
+      }
     };
 
     initializeSocket();

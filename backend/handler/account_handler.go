@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"order-system/database"
 	"order-system/models"
+	"order-system/utils"
 	"os"
 	"strings"
 
@@ -189,6 +190,7 @@ func Register(c *fiber.Ctx) error {
 // @Param credentials body LoginRequest true "Login credentials"
 // @Success 200 {object} fiber.Map
 // @Failure 401 {string} string "Invalid username or password"
+// @Failure 429 {string} string "Rate limit exceeded"
 // @Router /api/user/login [post]
 func Login(c *fiber.Ctx) error {
 	var loginRequest struct {
@@ -204,9 +206,19 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check brute force protection
+	if !utils.CheckBruteForce(loginRequest.Username) {
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Too many failed login attempts. Account locked temporarily.",
+		})
+	}
+
 	var dbUser models.User
 	err := database.DB.Where("username = ?", loginRequest.Username).Preload("Restaurants").First(&dbUser).Error
 	if err != nil {
+		// Return generic error to prevent username enumeration
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
@@ -215,6 +227,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(dbUser.Password), []byte(loginRequest.Password)); err != nil {
+		// Login failed, don't record successful login
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
@@ -222,8 +235,11 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// Generate Access and Refresh Tokens
-	accessToken, err := generateAccessToken(loginRequest.Username)
+	// Login successful, record this to reset brute force attempts
+	utils.RecordSuccessfulLogin(loginRequest.Username)
+
+	// Generate Secure Access and Refresh Tokens
+	accessToken, err := utils.GenerateSecureAccessToken(dbUser.ID, loginRequest.Username)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -232,7 +248,7 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 
-	refreshToken, err := generateRefreshToken(loginRequest.Username)
+	refreshToken, err := utils.GenerateSecureRefreshToken(dbUser.ID, loginRequest.Username)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -240,6 +256,10 @@ func Login(c *fiber.Ctx) error {
 			"error":   "Error generating refresh token",
 		})
 	}
+
+	// Set tokens as HttpOnly, Secure cookies
+	utils.SetSecureCookie(c, "access_token", accessToken, 15*60) // 15 minutes
+	utils.SetSecureCookie(c, "refresh_token", refreshToken, 30*24*60*60) // 30 days
 
 	// Build restaurant response (nil if no restaurant)
 	var restaurantData interface{}
@@ -253,43 +273,71 @@ func Login(c *fiber.Ctx) error {
 		}
 	}
 
-	// Return response
+	// Return response without tokens in the body (they're in cookies)
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
-			"user_id":       dbUser.ID,
-			"username":      dbUser.Username,
-			"email":         dbUser.Email,
-			"role":          dbUser.Role,
-			"access_token":  accessToken,
-			"refresh_token": refreshToken,
-			"restaurant":    restaurantData,
+			"user_id":    dbUser.ID,
+			"username":   dbUser.Username,
+			"email":      dbUser.Email,
+			"role":       dbUser.Role,
+			"restaurant": restaurantData,
 		},
 		"error": nil,
 	})
 }
 
-// Middleware to protect routes using Access Token
+// Middleware to protect routes using Access Token from cookie
 func ProtectRoute(c *fiber.Ctx) error {
-	tokenString, err := extractBearerToken(c.Get("Authorization"))
-	if err != nil {
+	// Try to get token from cookie first, then from header as fallback
+	tokenString := c.Cookies("access_token")
+	if tokenString == "" {
+		// Fallback to Authorization header for development/testing
+		authHeader := c.Get("Authorization")
+		if authHeader != "" {
+			tokenString, _ = extractBearerToken(authHeader)
+		}
+	}
+
+	if tokenString == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
-			"error":   err.Error(),
+			"error":   "No access token provided",
 		})
 	}
 
-	username, err := ValidateAccessToken(tokenString)
+	claims, err := utils.ValidateAccessToken(tokenString)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
-			"error":   err.Error(),
+			"error":   "Invalid or expired access token",
+		})
+	}
+
+	// Store user info in context
+	username, ok := claims["username"].(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid token claims",
+		})
+	}
+
+	// Get user_id from claims
+	userID, ok := claims["user_id"].(float64)  // JWT numbers are float64
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid token user ID",
 		})
 	}
 
 	c.Locals("username", username)
+	c.Locals("user_id", userID)
 
 	return c.Next()
 }
@@ -338,29 +386,20 @@ func Profile(c *fiber.Ctx) error {
 // @Failure 401 {string} string "Invalid or expired refresh token"
 // @Router /api/user/refresh [post]
 func RefreshToken(c *fiber.Ctx) error {
-	var refreshRequest struct {
-		RefreshToken string `json:"refresh_token"`
-	}
-
-	// Parse the refresh token from the body
-	if err := c.BodyParser(&refreshRequest); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// Get refresh token from cookie
+	refreshTokenString := c.Cookies("refresh_token")
+	if refreshTokenString == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
-			"error":   "Invalid input",
+			"error":   "No refresh token provided",
 		})
 	}
 
 	// Validate the refresh token
-	token, err := jwt.Parse(refreshRequest.RefreshToken, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
-		return []byte(refreshSecretKey), nil
-	})
-
-	// Check if the token is valid and not expired
-	if err != nil || !token.Valid {
+	claims, err := utils.ValidateRefreshToken(refreshTokenString)
+	if err != nil {
+		utils.ClearSecureCookie(c, "refresh_token") // Clear invalid token
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"success": false,
 			"data":    nil,
@@ -368,12 +407,19 @@ func RefreshToken(c *fiber.Ctx) error {
 		})
 	}
 
-	// Extract username from the refresh token's claims
-	claims := token.Claims.(jwt.MapClaims)
-	username := claims["username"].(string)
+	// Extract user info from the refresh token's claims
+	username, ok := claims["username"].(string)
+	userID, ok2 := claims["user_id"].(float64)
+	if !ok || !ok2 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid token claims",
+		})
+	}
 
-	// Generate a new access token
-	accessToken, err := generateAccessToken(username)
+	// Generate new access and refresh tokens
+	newAccessToken, err := utils.GenerateSecureAccessToken(uint(userID), username)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -382,8 +428,7 @@ func RefreshToken(c *fiber.Ctx) error {
 		})
 	}
 
-	// Optionally, generate a new refresh token (if you want the refresh token to change)
-	refreshToken, err := generateRefreshToken(username)
+	newRefreshToken, err := utils.GenerateSecureRefreshToken(uint(userID), username)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
@@ -392,12 +437,15 @@ func RefreshToken(c *fiber.Ctx) error {
 		})
 	}
 
-	// Return the new tokens
+	// Set the new tokens as HttpOnly, Secure cookies
+	utils.SetSecureCookie(c, "access_token", newAccessToken, 15*60) // 15 minutes
+	utils.SetSecureCookie(c, "refresh_token", newRefreshToken, 30*24*60*60) // 30 days
+
+	// Return success response
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
-			"access_token":  accessToken,
-			"refresh_token": refreshToken,
+			"message": "Tokens refreshed successfully",
 		},
 		"error": nil,
 	})
@@ -493,5 +541,85 @@ func DeleteUser(c *fiber.Ctx) error {
 		"success": true,
 		"data":    "User deleted successfully",
 		"error":   nil,
+	})
+}
+
+// Logout godoc
+// @Summary User logout
+// @Description Clear user's tokens
+// @Tags User
+// @Produce json
+// @Success 200 {object} fiber.Map
+// @Failure 500 {object} fiber.Map
+// @Router /api/user/logout [post]
+func Logout(c *fiber.Ctx) error {
+	// Clear the secure tokens from cookies
+	utils.ClearSecureCookie(c, "access_token")
+	utils.ClearSecureCookie(c, "refresh_token")
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"message": "Successfully logged out",
+		},
+		"error": nil,
+	})
+}
+
+// GetWebSocketToken godoc
+// @Summary Get temporary WebSocket token
+// @Description Get a temporary token for WebSocket authentication
+// @Tags User
+// @Produce json
+// @Success 200 {object} fiber.Map
+// @Failure 401 {object} fiber.Map
+// @Router /api/user/websocket-token [get]
+func GetWebSocketToken(c *fiber.Ctx) error {
+	// Get username from context (set by ProtectRoute middleware)
+	username, ok := c.Locals("username").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid user context",
+		})
+	}
+
+	// The user_id from JWT claims comes as float64, need to convert properly
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		// Try to get it as uint if it was set directly
+		if userIDVal, ok := c.Locals("user_id").(uint); ok {
+			return generateWebSocketTokenResponse(c, userIDVal, username)
+		}
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid user ID context",
+		})
+	}
+
+	return generateWebSocketTokenResponse(c, uint(userIDFloat), username)
+}
+
+// Helper function to generate the WebSocket token response
+func generateWebSocketTokenResponse(c *fiber.Ctx, userID uint, username string) error {
+	// Generate a short-lived token specifically for WebSocket use
+	// This token will have a short expiration and specific purpose
+	websocketToken, err := utils.GenerateSecureWebSocketToken(userID, username)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error generating WebSocket token",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"websocket_token": websocketToken,
+		},
+		"error": nil,
 	})
 }

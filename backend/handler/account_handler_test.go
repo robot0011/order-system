@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
+	"order-system/utils"
 	"testing"
 	"time"
 
@@ -78,13 +79,18 @@ func TestProtectRouteSuccess(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	token, err := generateAccessToken("tester")
+	// Use the new secure token generation
+	token, err := utils.GenerateSecureAccessToken(1, "tester")
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/protected", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
+	// Set the token as a cookie instead of header
+	req.AddCookie(&http.Cookie{
+		Name:  "access_token",
+		Value: token,
+	})
 
 	resp, err := app.Test(req, -1)
 	if err != nil {

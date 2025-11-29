@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"order-system/database"
 	"order-system/models"
@@ -99,16 +100,24 @@ func TestFullFlow(t *testing.T) {
 
 		var result struct {
 			Success bool `json:"success"`
-			Data    struct {
-				AccessToken string `json:"access_token"`
-				// RefreshToken string `json:"refresh_token"`
-			} `json:"data"`
-			Error interface{} `json:"error"`
+			Data    map[string]interface{} `json:"data"`
+			Error   interface{} `json:"error"`
 		}
 		json.NewDecoder(resp.Body).Decode(&result)
 		assert.True(t, result.Success, "Expected success to be true")
 		assert.Nil(t, result.Error, "Expected error to be nil")
-		accessToken = result.Data.AccessToken
+
+		// Get the access token from cookies now
+		cookies := resp.Cookies()
+		var tokenCookie *http.Cookie
+		for _, cookie := range cookies {
+			if cookie.Name == "access_token" {
+				tokenCookie = cookie
+				break
+			}
+		}
+		assert.NotNil(t, tokenCookie, "Expected access token cookie to be set")
+		accessToken = tokenCookie.Value
 		assert.NotEmpty(t, accessToken)
 	})
 

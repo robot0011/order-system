@@ -5,6 +5,7 @@ import (
 	"log"
 	"order-system/database"
 	"order-system/models"
+	"order-system/utils"
 	"sync"
 
 	"github.com/gofiber/websocket/v2"
@@ -88,10 +89,21 @@ func (h *orderHub) publish(eventType string, order OrderResponse) {
 func HandleOrderSocket(c *websocket.Conn) {
 	token := c.Query("token")
 	log.Printf("WebSocket connection attempt with token: %s", token)
-	username, err := ValidateAccessToken(token)
+
+	// Validate the token using the new utility
+	claims, err := utils.ValidateAccessToken(token)
 	if err != nil {
 		log.Printf("WebSocket authentication failed: %v", err)
 		c.WriteMessage(websocket.TextMessage, []byte("invalid token"))
+		c.Close()
+		return
+	}
+
+	// Extract username from claims
+	username, ok := claims["username"].(string)
+	if !ok {
+		log.Printf("WebSocket authentication failed: invalid claims")
+		c.WriteMessage(websocket.TextMessage, []byte("invalid token claims"))
 		c.Close()
 		return
 	}

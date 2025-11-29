@@ -18,18 +18,13 @@ export default function Login() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        credentials: 'include', // Include cookies in request and response
       })
 
       const response = await res.json()
 
-      if (response.success && response.data?.access_token) {
-        const token = response.data.access_token
-        const refreshToken = response.data.refresh_token
-
-        localStorage.setItem('token', token)
-        if (refreshToken) {
-          localStorage.setItem('refreshToken', refreshToken)
-        }
+      if (res.ok && response.success) {
+        // Token is stored in secure cookie, just store user data locally
         localStorage.setItem('user', JSON.stringify(response.data))
         navigate('/dashboard/profile')
       } else {

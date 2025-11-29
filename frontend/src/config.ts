@@ -1,46 +1,34 @@
 export const API_URL = 'http://localhost:3000'
 
 // Token refresh function
-export const refreshAccessToken = async (): Promise<string | null> => {
+export const refreshAccessToken = async (): Promise<boolean> => {
   try {
-    const refreshToken = localStorage.getItem('refreshToken')
-    if (!refreshToken) {
-      return null
-    }
-
     const response = await fetch(`${API_URL}/api/user/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ refresh_token: refreshToken }),
+      credentials: 'include', // Include cookies in the request
     })
 
     if (response.ok) {
       const data = await response.json()
-      if (data.success && data.data?.access_token) {
-        localStorage.setItem('token', data.data.access_token) // Update access token
-        return data.data.access_token
+      if (data.success) {
+        return true
       } else {
         // If refresh fails, clear tokens and redirect to login
-        localStorage.removeItem('token')
-        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
         window.location.href = '/login'
-        return null
+        return false
       }
     } else {
       // If refresh fails, clear tokens and redirect to login
-      localStorage.removeItem('token')
-      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('user')
       window.location.href = '/login'
-      return null
+      return false
     }
   } catch (error) {
     console.error('Error refreshing token:', error)
-    localStorage.removeItem('token')
-    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('user')
     window.location.href = '/login'
-    return null
+    return false
   }
 }
 
@@ -49,13 +37,11 @@ export const authenticatedFetch = async (
   url: string,
   options: RequestInit = {}
 ): Promise<Response> => {
-  const token = localStorage.getItem('token')
-
-  const config = {
+  const config: RequestInit = {
     ...options,
+    credentials: 'include', // Include cookies in all requests
     headers: {
       ...options.headers,
-      ...(token && { Authorization: `Bearer ${token}` }),
       'Content-Type': 'application/json',
     },
   }
@@ -64,15 +50,32 @@ export const authenticatedFetch = async (
 
   // If the response is 401, try to refresh the token
   if (response.status === 401) {
-    const newToken = await refreshAccessToken()
+    const refreshSuccess = await refreshAccessToken()
 
-    if (newToken) {
-      // Retry the original request with the new token
-      config.headers.Authorization = `Bearer ${newToken}`
+    if (refreshSuccess) {
+      // Retry the original request with the refreshed token (in cookie)
       response = await fetch(url, config)
     }
   }
 
   return response
+}
+
+// Logout function
+export const logout = async (): Promise<void> => {
+  try {
+    await fetch(`${API_URL}/api/user/logout`, {
+      method: 'POST',
+      credentials: 'include', // Include cookies in the logout request
+    })
+  } catch (error) {
+    console.error('Error during logout:', error)
+  } finally {
+    // Clear local storage and redirect
+    localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
+    localStorage.removeItem('user')
+    window.location.href = '/login'
+  }
 }
 

@@ -21,6 +21,7 @@ export default function Register() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email, password }),
+        credentials: 'include', // Include cookies in request and response
       })
 
       const response = await res.json()

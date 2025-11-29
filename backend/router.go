@@ -2,6 +2,8 @@ package main
 
 import (
 	"order-system/handler"
+	"order-system/utils"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -25,10 +27,18 @@ func setupRoutes(app *fiber.App) {
 
 	user := api.Group("/user")
 	user.Get("/", handler.GetAllUsers)
-	user.Post("/register", handler.Register)
-	user.Post("/login", handler.Login)
+	user.Post("/register",
+		utils.RateLimitMiddleware(5, time.Minute), // 5 registration attempts per minute
+		handler.Register)
+	user.Post("/login",
+		utils.RateLimitMiddleware(10, time.Minute), // 10 login attempts per minute
+		handler.Login)
+	user.Post("/logout", handler.Logout)
 	user.Get("/profile", handler.ProtectRoute, handler.Profile)
-	user.Post("/refresh", handler.RefreshToken)
+	user.Post("/refresh",
+		utils.RateLimitMiddleware(5, time.Minute), // 5 refresh attempts per minute
+		handler.RefreshToken)
+	user.Get("/websocket-token", handler.ProtectRoute, handler.GetWebSocketToken)
 	user.Delete("/", handler.DeleteUser)
 
 	// Public restaurant endpoints (no authentication required)

@@ -5,6 +5,7 @@ import (
 	"order-system/database"
 	_ "order-system/docs"
 	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -39,15 +40,28 @@ func main() {
 	database.ConnectDB()
 	app := fiber.New()
 
-	// CORS configuration
+	// CORS configuration - security: cannot use wildcard with credentials
 	corsOrigins := os.Getenv("CORS_ORIGINS")
+	allowOrigins := []string{}
 	if corsOrigins == "" {
-		corsOrigins = "*"
+		// In development, you can set specific origins
+		// For production, always define specific origins
+		allowOrigins = []string{
+			"http://localhost:5173", // Vite default port
+			"http://localhost:3000", // Common React port
+			"http://localhost:3001", // Alternative port
+		}
+	} else {
+		// Split comma-separated origins
+		origins := strings.Split(corsOrigins, ",")
+		for _, origin := range origins {
+			allowOrigins = append(allowOrigins, strings.TrimSpace(origin))
+		}
 	}
 
 	// Add CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     corsOrigins,
+		AllowOrigins:     strings.Join(allowOrigins, ","),
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS, PATCH",
 		AllowCredentials: true, // Enable credentials for WebSocket auth
