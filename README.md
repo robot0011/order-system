@@ -42,12 +42,33 @@ order-system/
    - Copy `.env.example` to `.env`
    - Update the values in `.env` with your local configuration
 
-4. Run the application:
+4. Run the application with hot reload (using Air):
+   ```bash
+   # First install Air if you haven't already
+   go install github.com/air-verse/air@latest
+
+   # Then run with hot reload
+   air
+   ```
+
+   Or run without hot reload:
    ```bash
    go run main.go
    ```
 
-The backend server will start on `http://localhost:8080` (or the port specified in your environment variables).
+### Building for Production
+
+To build a production binary:
+
+```bash
+# For Windows
+go build -o order-system.exe .
+
+# For Linux/macOS
+go build -o order-system .
+```
+
+The binary can be run independently without requiring Go to be installed on the target system.
 
 ### Database Configuration
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { API_URL, authenticatedFetch } from '../config'
+import { handleApiResponse, isResponseSuccess } from '../utils/api'
 
 interface ProfileData {
   username: string
@@ -16,11 +17,13 @@ export default function Profile() {
     const fetchProfile = async () => {
       try {
         const res = await authenticatedFetch(`${API_URL}/api/user/profile`)
-        if (res.ok) {
-          const data = await res.json()
-          setProfile(data)
+        const response = await handleApiResponse(res)
+
+        if (res.ok && isResponseSuccess(response)) {
+          setProfile(response.data)
         } else {
-          setError('Failed to load profile')
+          const errorMessage = response.error || 'Failed to load profile'
+          setError(errorMessage)
         }
       } catch {
         setError('Failed to load profile')

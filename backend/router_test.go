@@ -22,15 +22,32 @@ func TestHealthCheck(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	var body map[string]string
+	var body map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if body["status"] != "ok" {
-		t.Fatalf("expected status ok, got %s", body["status"])
+	// Check the success field
+	success, ok := body["success"].(bool)
+	if !ok || !success {
+		t.Fatalf("expected success to be true, got %v", body["success"])
 	}
-	if body["message"] == "" {
+
+	// Check the data field
+	data, ok := body["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data to be a map, got %v", body["data"])
+	}
+
+	if data["status"] != "ok" {
+		t.Fatalf("expected status ok, got %s", data["status"])
+	}
+	if data["message"] == "" {
 		t.Fatalf("expected message, got empty string")
+	}
+
+	// Check the error field
+	if body["error"] != nil {
+		t.Fatalf("expected error to be nil, got %v", body["error"])
 	}
 }

@@ -25,7 +25,11 @@ func CreateRestaurant(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	var request struct {
@@ -36,7 +40,11 @@ func CreateRestaurant(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	restaurant := models.Restaurant{
@@ -48,10 +56,18 @@ func CreateRestaurant(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error creating restaurant")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error creating restaurant",
+		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(restaurant)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    restaurant,
+		"error":   nil,
+	})
 }
 
 // GetRestaurants godoc
@@ -69,15 +85,27 @@ func GetRestaurants(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	var restaurants []models.Restaurant
 	if err := database.DB.Where("user_id = ?", user.ID).Find(&restaurants).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving restaurants")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving restaurants",
+		})
 	}
 
-	return c.JSON(restaurants)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    restaurants,
+		"error":   nil,
+	})
 }
 
 // GetRestaurantByID godoc
@@ -102,10 +130,18 @@ func GetRestaurantByID(c *fiber.Ctx) error {
 
 	var restaurant models.Restaurant
 	if err := database.DB.Where("id = ? AND user_id = ?", id, user.ID).Preload("Tables").Preload("MenuItems").First(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
-	return c.JSON(restaurant)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    restaurant,
+		"error":   nil,
+	})
 }
 
 // UpdateRestaurant godoc
@@ -128,12 +164,20 @@ func UpdateRestaurant(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	var restaurant models.Restaurant
 	if err := database.DB.Where("id = ? AND user_id = ?", id, user.ID).First(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var request struct {
@@ -144,7 +188,11 @@ func UpdateRestaurant(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	restaurant.Name = request.Name
@@ -153,10 +201,18 @@ func UpdateRestaurant(c *fiber.Ctx) error {
 	restaurant.LogoURL = request.LogoURL
 
 	if err := database.DB.Save(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error updating restaurant")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error updating restaurant",
+		})
 	}
 
-	return c.JSON(restaurant)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    restaurant,
+		"error":   nil,
+	})
 }
 
 // GetPublicRestaurantByID godoc
@@ -173,10 +229,18 @@ func GetPublicRestaurantByID(c *fiber.Ctx) error {
 
 	var restaurant models.Restaurant
 	if err := database.DB.Where("id = ?", id).Preload("Tables").First(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
-	return c.JSON(restaurant)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    restaurant,
+		"error":   nil,
+	})
 }
 
 // DeleteRestaurant godoc
@@ -196,17 +260,33 @@ func DeleteRestaurant(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	var restaurant models.Restaurant
 	if err := database.DB.Where("id = ? AND user_id = ?", id, user.ID).First(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	if err := database.DB.Delete(&restaurant).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error deleting restaurant")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error deleting restaurant",
+		})
 	}
 
-	return c.SendStatus(fiber.StatusOK)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    "Restaurant deleted successfully",
+		"error":   nil,
+	})
 }

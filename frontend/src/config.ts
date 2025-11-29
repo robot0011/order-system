@@ -18,8 +18,16 @@ export const refreshAccessToken = async (): Promise<string | null> => {
 
     if (response.ok) {
       const data = await response.json()
-      localStorage.setItem('token', data.access_token) // Update access token
-      return data.access_token
+      if (data.success && data.data?.access_token) {
+        localStorage.setItem('token', data.data.access_token) // Update access token
+        return data.data.access_token
+      } else {
+        // If refresh fails, clear tokens and redirect to login
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        window.location.href = '/login'
+        return null
+      }
     } else {
       // If refresh fails, clear tokens and redirect to login
       localStorage.removeItem('token')

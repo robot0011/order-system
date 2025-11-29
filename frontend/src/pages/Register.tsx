@@ -23,13 +23,14 @@ export default function Register() {
         body: JSON.stringify({ username, email, password }),
       })
 
-      const data = await res.json()
+      const response = await res.json()
 
-      if (data.status === 'success') {
+      if (response.success) {
         setSuccess('Registration successful! Redirecting...')
         setTimeout(() => navigate('/login'), 1500)
       } else {
-        setError(data.message || 'Registration failed')
+        const errorMessage = response.error || 'Registration failed'
+        setError(errorMessage)
       }
     } catch {
       setError('Registration failed')

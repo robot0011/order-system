@@ -30,7 +30,11 @@ func CreateOrder(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var request struct {
@@ -44,13 +48,21 @@ func CreateOrder(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	// Verify table belongs to restaurant
 	var table models.Table
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", request.TableID, restaurant.ID).First(&table).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Table not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Table not found",
+		})
 	}
 
 	// Calculate total amount
@@ -60,7 +72,11 @@ func CreateOrder(c *fiber.Ctx) error {
 	for _, item := range request.OrderItems {
 		var menuItem models.MenuItem
 		if err := database.DB.Where("id = ? AND restaurant_id = ?", item.MenuItemID, restaurant.ID).First(&menuItem).Error; err != nil {
-			return c.Status(fiber.StatusNotFound).SendString("Menu item not found")
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"success": false,
+				"data":    nil,
+				"error":   "Menu item not found",
+			})
 		}
 
 		quantity := item.Quantity
@@ -86,7 +102,11 @@ func CreateOrder(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&order).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error creating order")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error creating order",
+		})
 	}
 
 	// Load order with items
@@ -95,7 +115,11 @@ func CreateOrder(c *fiber.Ctx) error {
 	orderResponse := buildOrderResponse(order, restaurant)
 	globalOrderHub.publish("order_created", orderResponse)
 
-	return c.Status(fiber.StatusCreated).JSON(order)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    order,
+		"error":   nil,
+	})
 }
 
 // GetOrders godoc
@@ -115,7 +139,11 @@ func GetOrders(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	// Get all table IDs for the restaurant
@@ -130,11 +158,19 @@ func GetOrders(c *fiber.Ctx) error {
 	var orders []models.Order
 	if len(tableIDs) > 0 {
 		if err := database.DB.Where("table_id IN ?", tableIDs).Preload("OrderItems").Find(&orders).Error; err != nil {
-			return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving orders")
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"data":    nil,
+				"error":   "Error retrieving orders",
+			})
 		}
 	}
 
-	return c.JSON(orders)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    orders,
+		"error":   nil,
+	})
 }
 
 // GetOrder godoc
@@ -156,7 +192,11 @@ func GetOrder(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	// Get all table IDs for the restaurant
@@ -170,10 +210,18 @@ func GetOrder(c *fiber.Ctx) error {
 
 	var order models.Order
 	if err := database.DB.Where("id = ? AND table_id IN ?", orderID, tableIDs).Preload("OrderItems").First(&order).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Order not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Order not found",
+		})
 	}
 
-	return c.JSON(order)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    order,
+		"error":   nil,
+	})
 }
 
 // UpdateOrderStatus godoc
@@ -198,7 +246,11 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	// Get all table IDs for the restaurant
@@ -212,7 +264,11 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 
 	var order models.Order
 	if err := database.DB.Where("id = ? AND table_id IN ?", orderID, tableIDs).First(&order).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Order not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Order not found",
+		})
 	}
 
 	var request struct {
@@ -220,7 +276,11 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	// Map the simplified frontend status to internal status value
@@ -228,14 +288,22 @@ func UpdateOrderStatus(c *fiber.Ctx) error {
 	order.Status = internalStatus
 
 	if err := database.DB.Save(&order).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error updating order")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error updating order",
+		})
 	}
 
 	database.DB.Preload("OrderItems").First(&order, order.ID)
 	orderResponse := buildOrderResponse(order, restaurant)
 	globalOrderHub.publish("order_updated", orderResponse)
 
-	return c.JSON(order)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    order,
+		"error":   nil,
+	})
 }
 
 // DeleteOrder godoc
@@ -257,7 +325,11 @@ func DeleteOrder(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	// Get all table IDs for the restaurant
@@ -271,17 +343,29 @@ func DeleteOrder(c *fiber.Ctx) error {
 
 	var order models.Order
 	if err := database.DB.Where("id = ? AND table_id IN ?", orderID, tableIDs).First(&order).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Order not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Order not found",
+		})
 	}
 
 	// Delete order items first
 	database.DB.Where("order_id = ?", order.ID).Delete(&models.OrderItem{})
 
 	if err := database.DB.Delete(&order).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error deleting order")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error deleting order",
+		})
 	}
 
-	return c.SendStatus(fiber.StatusOK)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    "Order deleted successfully",
+		"error":   nil,
+	})
 }
 
 // CreatePublicOrder godoc
@@ -303,7 +387,11 @@ func CreatePublicOrder(c *fiber.Ctx) error {
 	// Verify restaurant exists
 	var restaurant models.Restaurant
 	if err := database.DB.First(&restaurant, restaurantID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var request struct {
@@ -317,13 +405,21 @@ func CreatePublicOrder(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	// Verify table belongs to restaurant
 	var table models.Table
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", request.TableID, restaurant.ID).First(&table).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Table not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Table not found",
+		})
 	}
 
 	var createdOrder models.Order
@@ -381,15 +477,27 @@ func CreatePublicOrder(c *fiber.Ctx) error {
 		return tx.Preload("OrderItems").First(&createdOrder, createdOrder.ID).Error
 	}); err != nil {
 		if fiberErr, ok := err.(*fiber.Error); ok {
-			return c.Status(fiberErr.Code).SendString(fiberErr.Message)
+			return c.Status(fiberErr.Code).JSON(fiber.Map{
+				"success": false,
+				"data":    nil,
+				"error":   fiberErr.Message,
+			})
 		}
-		return c.Status(fiber.StatusInternalServerError).SendString("Error creating order")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error creating order",
+		})
 	}
 
 	orderResponse := buildOrderResponse(createdOrder, &restaurant)
 	globalOrderHub.publish("order_created", orderResponse)
 
-	return c.Status(fiber.StatusCreated).JSON(createdOrder)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    createdOrder,
+		"error":   nil,
+	})
 }
 
 func buildOrderResponse(order models.Order, restaurant *models.Restaurant) OrderResponse {
@@ -439,13 +547,21 @@ func GetAllUserOrders(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	// Get all restaurants for the user
 	var restaurants []models.Restaurant
 	if err := database.DB.Where("user_id = ?", user.ID).Find(&restaurants).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving restaurants")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving restaurants",
+		})
 	}
 
 	// Extract restaurant IDs
@@ -456,13 +572,21 @@ func GetAllUserOrders(c *fiber.Ctx) error {
 
 	// If user has no restaurants, return empty array
 	if len(restaurantIDs) == 0 {
-		return c.JSON([]OrderResponse{})
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    []OrderResponse{},
+			"error":   nil,
+		})
 	}
 
 	// Get all tables for these restaurants to get the table IDs
 	var tables []models.Table
 	if err := database.DB.Where("restaurant_id IN ?", restaurantIDs).Find(&tables).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving tables")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving tables",
+		})
 	}
 
 	// Extract table IDs
@@ -473,13 +597,21 @@ func GetAllUserOrders(c *fiber.Ctx) error {
 
 	// If user has no tables, return empty array
 	if len(tableIDs) == 0 {
-		return c.JSON([]OrderResponse{})
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    []OrderResponse{},
+			"error":   nil,
+		})
 	}
 
 	// Get all orders for these tables
 	var orders []models.Order
 	if err := database.DB.Where("table_id IN ?", tableIDs).Preload("OrderItems").Preload("OrderItems.MenuItem").Find(&orders).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving orders")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving orders",
+		})
 	}
 
 	// Convert orders to OrderResponse with restaurant name and ID
@@ -530,7 +662,11 @@ func GetAllUserOrders(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(orderResponses)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    orderResponses,
+		"error":   nil,
+	})
 }
 
 // Helper function to determine if a restaurant owns a specific table

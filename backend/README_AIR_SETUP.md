@@ -45,6 +45,53 @@ go run main.go
 go build -o order-system.exe .
 ```
 
+This creates a single binary executable file that can run independently without requiring Go to be installed on the target system.
+
+### Cross-compilation for Different Platforms
+
+You can build for different operating systems using Go's cross-compilation:
+
+**For Linux:**
+```bash
+GOOS=linux GOARCH=amd64 go build -o order-system .
+```
+
+**For macOS:**
+```bash
+GOOS=darwin GOARCH=amd64 go build -o order-system .
+```
+
+**For Windows (64-bit):**
+```bash
+GOOS=windows GOARCH=amd64 go build -o order-system.exe .
+```
+
+### Optimized Build for Production
+
+For a smaller binary size and more optimized performance:
+
+```bash
+go build -ldflags="-s -w" -o order-system.exe .
+```
+
+The `-s` flag strips the symbol table and debug information, and `-w` removes the DWARF symbol table.
+
+### Building and Running the Binary
+
+After building:
+
+1. **Windows:**
+   ```
+   order-system.exe
+   ```
+
+2. **Linux/macOS:**
+   ```
+   ./order-system
+   ```
+
+Make sure your environment variables (like DATABASE_URL, PORT, etc.) are set in the target environment before running the binary.
+
 ## What Air Watches
 
 Air monitors these file types for changes:

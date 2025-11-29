@@ -44,7 +44,11 @@ func CreateTable(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var request struct {
@@ -52,7 +56,11 @@ func CreateTable(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	table := models.Table{
@@ -61,7 +69,11 @@ func CreateTable(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&table).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error creating table")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error creating table",
+		})
 	}
 
 	// After creating the table, generate the QR code image
@@ -82,7 +94,11 @@ func CreateTable(c *fiber.Ctx) error {
 		fmt.Println("Error updating table with QR code URL:", err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(table)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    table,
+		"error":   nil,
+	})
 }
 
 // GetTables godoc
@@ -102,15 +118,27 @@ func GetTables(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var tables []models.Table
 	if err := database.DB.Where("restaurant_id = ?", restaurant.ID).Find(&tables).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving tables")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving tables",
+		})
 	}
 
-	return c.JSON(tables)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    tables,
+		"error":   nil,
+	})
 }
 
 // UpdateTable godoc
@@ -135,12 +163,20 @@ func UpdateTable(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var table models.Table
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", tableID, restaurant.ID).First(&table).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Table not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Table not found",
+		})
 	}
 
 	var request struct {
@@ -148,7 +184,11 @@ func UpdateTable(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	table.TableNumber = request.TableNumber
@@ -167,10 +207,18 @@ func UpdateTable(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Save(&table).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error updating table")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error updating table",
+		})
 	}
 
-	return c.JSON(table)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    table,
+		"error":   nil,
+	})
 }
 
 // DeleteTable godoc
@@ -192,19 +240,35 @@ func DeleteTable(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var table models.Table
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", tableID, restaurant.ID).First(&table).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Table not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Table not found",
+		})
 	}
 
 	if err := database.DB.Delete(&table).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error deleting table")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error deleting table",
+		})
 	}
 
-	return c.SendStatus(fiber.StatusOK)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    "Table deleted successfully",
+		"error":   nil,
+	})
 }
 
 // GetAllUserTables godoc
@@ -222,13 +286,21 @@ func GetAllUserTables(c *fiber.Ctx) error {
 
 	var user models.User
 	if err := database.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("User not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "User not found",
+		})
 	}
 
 	// Get all restaurants for the user
 	var restaurants []models.Restaurant
 	if err := database.DB.Where("user_id = ?", user.ID).Find(&restaurants).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving restaurants")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving restaurants",
+		})
 	}
 
 	// Extract restaurant IDs
@@ -239,13 +311,21 @@ func GetAllUserTables(c *fiber.Ctx) error {
 
 	// If user has no restaurants, return empty array
 	if len(restaurantIDs) == 0 {
-		return c.JSON([]models.Table{})
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    []models.Table{},
+			"error":   nil,
+		})
 	}
 
 	// Get all tables for these restaurants
 	var tables []models.Table
 	if err := database.DB.Where("restaurant_id IN ?", restaurantIDs).Find(&tables).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving tables")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving tables",
+		})
 	}
 
 	// Enhance table data with restaurant information
@@ -283,7 +363,11 @@ func GetAllUserTables(c *fiber.Ctx) error {
 		tablesWithRestaurantInfo = append(tablesWithRestaurantInfo, tableMap)
 	}
 
-	return c.JSON(tablesWithRestaurantInfo)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    tablesWithRestaurantInfo,
+		"error":   nil,
+	})
 }
 
 func parseUint(s string) uint {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_URL, authenticatedFetch } from '../config';
 import { formatCurrency } from '../utils/currency';
+import { handleApiResponse, isResponseSuccess } from '../utils/api';
 
 interface OrderItem {
   ID: number;
@@ -107,8 +108,9 @@ export default function Orders() {
   const fetchOrders = useCallback(async () => {
     try {
       const res = await authenticatedFetch(`${API_URL}/api/order`);
-      if (res.ok) {
-        const data: OrderResponsePayload[] = await res.json();
+      const response = await handleApiResponse(res);
+      if (res.ok && isResponseSuccess(response)) {
+        const data: OrderResponsePayload[] = response.data;
         const normalized = data.map(normalizeOrder);
         // Separate active and transaction orders
         const active = normalized.filter((order) => order.Status && !isTransactionStatus(order.Status));
@@ -116,7 +118,8 @@ export default function Orders() {
         setActiveOrders(active);
         setPaidOrders(paid);
       } else {
-        setError('Failed to load orders');
+        const errorMessage = response.error || 'Failed to load orders';
+        setError(errorMessage);
       }
     } catch {
       setError('Failed to load orders');
@@ -204,7 +207,8 @@ export default function Orders() {
         body: JSON.stringify({ status: newStatus }),
       });
 
-      if (res.ok) {
+      const response = await handleApiResponse(res);
+      if (res.ok && isResponseSuccess(response)) {
         // Update the local state based on the new status
         if (newStatus === 'paid' || newStatus === 'cancelled') {
           setActiveOrders((prev) => prev.filter((order) => order.ID !== orderId));
@@ -225,8 +229,8 @@ export default function Orders() {
         }
         alert('Order status updated successfully');
       } else {
-        const errorData = await res.json();
-        alert(`Failed to update order status: ${errorData.message || 'Unknown error'}`);
+        const errorMessage = response.error || 'Failed to update order status';
+        alert(`Failed to update order status: ${errorMessage}`);
       }
     } catch (err) {
       console.error('Error updating order status:', err);

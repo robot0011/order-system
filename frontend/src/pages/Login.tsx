@@ -20,25 +20,21 @@ export default function Login() {
         body: JSON.stringify({ username, password }),
       })
 
-      if (!res.ok) {
-        const errorText = await res.text()
-        setError(errorText || 'Invalid credentials')
-        return
-      }
+      const response = await res.json()
 
-      const data = await res.json()
-      const token = data?.data?.access_token
-      const refreshToken = data?.data?.refresh_token
+      if (response.success && response.data?.access_token) {
+        const token = response.data.access_token
+        const refreshToken = response.data.refresh_token
 
-      if (data.status === 'success' && token) {
         localStorage.setItem('token', token)
         if (refreshToken) {
           localStorage.setItem('refreshToken', refreshToken)
         }
-        localStorage.setItem('user', JSON.stringify(data.data))
+        localStorage.setItem('user', JSON.stringify(response.data))
         navigate('/dashboard/profile')
       } else {
-        setError('Invalid credentials')
+        const errorMessage = response.error || 'Invalid credentials'
+        setError(errorMessage)
       }
     } catch {
       setError('Login failed')

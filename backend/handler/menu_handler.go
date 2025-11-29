@@ -27,7 +27,11 @@ func CreateMenuItem(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var request struct {
@@ -40,7 +44,11 @@ func CreateMenuItem(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	menuItem := models.MenuItem{
@@ -54,10 +62,18 @@ func CreateMenuItem(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Create(&menuItem).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error creating menu item")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error creating menu item",
+		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(menuItem)
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    menuItem,
+		"error":   nil,
+	})
 }
 
 // GetMenuItems godoc
@@ -77,15 +93,27 @@ func GetMenuItems(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var menuItems []models.MenuItem
 	if err := database.DB.Where("restaurant_id = ?", restaurant.ID).Find(&menuItems).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving menu items")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving menu items",
+		})
 	}
 
-	return c.JSON(menuItems)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    menuItems,
+		"error":   nil,
+	})
 }
 
 // UpdateMenuItem godoc
@@ -110,12 +138,20 @@ func UpdateMenuItem(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var menuItem models.MenuItem
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", itemID, restaurant.ID).First(&menuItem).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Menu item not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Menu item not found",
+		})
 	}
 
 	var request struct {
@@ -128,7 +164,11 @@ func UpdateMenuItem(c *fiber.Ctx) error {
 	}
 
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("Invalid input")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Invalid input",
+		})
 	}
 
 	menuItem.Name = request.Name
@@ -139,10 +179,18 @@ func UpdateMenuItem(c *fiber.Ctx) error {
 	menuItem.Quantity = request.Quantity
 
 	if err := database.DB.Save(&menuItem).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error updating menu item")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error updating menu item",
+		})
 	}
 
-	return c.JSON(menuItem)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    menuItem,
+		"error":   nil,
+	})
 }
 
 // DeleteMenuItem godoc
@@ -164,19 +212,35 @@ func DeleteMenuItem(c *fiber.Ctx) error {
 
 	restaurant, err := verifyRestaurantOwnership(username, parseUint(restaurantID))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 
 	var menuItem models.MenuItem
 	if err := database.DB.Where("id = ? AND restaurant_id = ?", itemID, restaurant.ID).First(&menuItem).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Menu item not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Menu item not found",
+		})
 	}
 
 	if err := database.DB.Delete(&menuItem).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error deleting menu item")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error deleting menu item",
+		})
 	}
 
-	return c.SendStatus(fiber.StatusOK)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    "Menu item deleted successfully",
+		"error":   nil,
+	})
 }
 
 // GetPublicMenuItems godoc
@@ -195,14 +259,26 @@ func GetPublicMenuItems(c *fiber.Ctx) error {
 	// Check if restaurant exists
 	var restaurant models.Restaurant
 	if err := database.DB.First(&restaurant, restaurantID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).SendString("Restaurant not found")
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Restaurant not found",
+		})
 	}
 	println(restaurant.Name)
 
 	var menuItems []models.MenuItem
 	if err := database.DB.Where("restaurant_id = ?", restaurant.ID).Find(&menuItems).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString("Error retrieving menu items")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"data":    nil,
+			"error":   "Error retrieving menu items",
+		})
 	}
 
-	return c.JSON(menuItems)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    menuItems,
+		"error":   nil,
+	})
 }

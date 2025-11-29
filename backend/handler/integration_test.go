@@ -98,14 +98,16 @@ func TestFullFlow(t *testing.T) {
 		assert.Equal(t, 200, resp.StatusCode)
 
 		var result struct {
-			Status  string `json:"status"`
-			Message string `json:"message"`
+			Success bool `json:"success"`
 			Data    struct {
 				AccessToken string `json:"access_token"`
 				// RefreshToken string `json:"refresh_token"`
 			} `json:"data"`
+			Error interface{} `json:"error"`
 		}
 		json.NewDecoder(resp.Body).Decode(&result)
+		assert.True(t, result.Success, "Expected success to be true")
+		assert.Nil(t, result.Error, "Expected error to be nil")
 		accessToken = result.Data.AccessToken
 		assert.NotEmpty(t, accessToken)
 	})
@@ -131,9 +133,15 @@ func TestFullFlow(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 201, resp.StatusCode)
 
-		var result models.Restaurant
-		json.NewDecoder(resp.Body).Decode(&result)
-		restaurantID = result.ID
+		var response struct {
+			Success bool            `json:"success"`
+			Data    models.Restaurant `json:"data"`
+			Error   interface{}       `json:"error"`
+		}
+		json.NewDecoder(resp.Body).Decode(&response)
+		assert.True(t, response.Success, "Expected success to be true")
+		assert.Nil(t, response.Error, "Expected error to be nil")
+		restaurantID = response.Data.ID
 		assert.NotZero(t, restaurantID)
 	})
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { API_URL, authenticatedFetch } from '../config'
+import { handleApiResponse, isResponseSuccess } from '../utils/api'
 
 interface TableData {
   ID: number
@@ -31,21 +32,23 @@ export default function Tables() {
     try {
       // Fetch all restaurants
       const resRestaurants = await authenticatedFetch(`${API_URL}/api/restaurant/`);
-      if (resRestaurants.ok) {
-        const restaurantData = await resRestaurants.json();
-        setRestaurants(restaurantData);
+      const restaurantResponse = await handleApiResponse(resRestaurants);
+      if (resRestaurants.ok && isResponseSuccess(restaurantResponse)) {
+        setRestaurants(restaurantResponse.data);
       } else {
-        setError('Failed to load restaurants');
+        const errorMessage = restaurantResponse.error || 'Failed to load restaurants';
+        setError(errorMessage);
         return;
       }
 
       // Fetch all tables
       const resTables = await authenticatedFetch(`${API_URL}/api/table`);
-      if (resTables.ok) {
-        const tableData = await resTables.json();
-        setTables(tableData);
+      const tablesResponse = await handleApiResponse(resTables);
+      if (resTables.ok && isResponseSuccess(tablesResponse)) {
+        setTables(tablesResponse.data);
       } else {
-        setError('Failed to load tables');
+        const errorMessage = tablesResponse.error || 'Failed to load tables';
+        setError(errorMessage);
       }
     } catch {
       setError('Failed to load data');
@@ -92,11 +95,13 @@ export default function Tables() {
           table_number: tableNumber,
         }),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+      if (res.ok && isResponseSuccess(response)) {
         // Refresh all tables after creating a new one
         fetchRestaurantsAndTables();
       } else {
-        setError('Failed to create table')
+        const errorMessage = response.error || 'Failed to create table'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to create table')
@@ -118,7 +123,8 @@ export default function Tables() {
           table_number: tableToEdit.TableNumber,
         }),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+      if (res.ok && isResponseSuccess(response)) {
         // Update the table in the local state
         setTables(prevTables =>
           prevTables.map(table =>
@@ -128,7 +134,8 @@ export default function Tables() {
           )
         )
       } else {
-        setError('Failed to update table')
+        const errorMessage = response.error || 'Failed to update table'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to update table')
@@ -143,11 +150,13 @@ export default function Tables() {
       const res = await authenticatedFetch(`${API_URL}/api/restaurant/${restaurantId}/table/${tableId}`, {
         method: 'DELETE',
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+      if (res.ok && isResponseSuccess(response)) {
         // Remove the deleted table from the local state
         setTables(prevTables => prevTables.filter(t => t.ID !== tableId))
       } else {
-        setError('Failed to delete table')
+        const errorMessage = response.error || 'Failed to delete table'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to delete table')

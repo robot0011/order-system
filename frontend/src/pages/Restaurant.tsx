@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { API_URL, authenticatedFetch } from '../config'
 import { formatCurrency } from '../utils/currency'
+import { handleApiResponse, isResponseSuccess } from '../utils/api'
 
 interface RestaurantData {
   ID: number
@@ -55,11 +56,13 @@ export default function Restaurant() {
   const fetchRestaurants = async () => {
     try {
       const res = await authenticatedFetch(`${API_URL}/api/restaurant/`)
-      if (res.ok) {
-        const data = await res.json()
-        setRestaurants(data || [])
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
+        setRestaurants(response.data || [])
       } else {
-        setError('Failed to load restaurants')
+        const errorMessage = response.error || 'Failed to load restaurants'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to load restaurants')
@@ -79,12 +82,15 @@ export default function Restaurant() {
         method: 'POST',
         body: JSON.stringify(formData),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         setShowForm(false)
         setFormData({ name: '', address: '', phone_number: '', logo_url: '' })
         fetchRestaurants()
       } else {
-        setError('Failed to create restaurant')
+        const errorMessage = response.error || 'Failed to create restaurant'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to create restaurant')
@@ -99,12 +105,15 @@ export default function Restaurant() {
         method: 'PUT',
         body: JSON.stringify(formData),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         setEditingId(null)
         setFormData({ name: '', address: '', phone_number: '', logo_url: '' })
         fetchRestaurants()
       } else {
-        setError('Failed to update restaurant')
+        const errorMessage = response.error || 'Failed to update restaurant'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to update restaurant')
@@ -117,10 +126,13 @@ export default function Restaurant() {
       const res = await authenticatedFetch(`${API_URL}/api/restaurant/${id}`, {
         method: 'DELETE',
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         fetchRestaurants()
       } else {
-        setError('Failed to delete restaurant')
+        const errorMessage = response.error || 'Failed to delete restaurant'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to delete restaurant')
@@ -160,7 +172,9 @@ export default function Restaurant() {
           quantity: parseInt(menuFormData.quantity),
         }),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         setShowMenuForm(false)
         setMenuFormData({
           name: '',
@@ -174,7 +188,8 @@ export default function Restaurant() {
         // Optionally show a success message
         alert('Menu item created successfully!')
       } else {
-        setError('Failed to create menu item')
+        const errorMessage = response.error || 'Failed to create menu item'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to create menu item')
@@ -199,12 +214,14 @@ export default function Restaurant() {
     setLoadingMenu(true)
     try {
       const res = await authenticatedFetch(`${API_URL}/api/restaurant/${restaurantId}/menu`)
-      if (res.ok) {
-        const data = await res.json()
-        setMenuItems(data || [])
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
+        setMenuItems(response.data || [])
         setShowingMenuId(restaurantId)
       } else {
-        setError('Failed to load menu items')
+        const errorMessage = response.error || 'Failed to load menu items'
+        setError(errorMessage)
         setMenuItems([])
         setShowingMenuId(null)
       }
@@ -272,13 +289,16 @@ export default function Restaurant() {
           quantity: parseInt(editingMenuForm.quantity)
         }),
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         // Refresh the menu items for the current restaurant
         await fetchMenuItems(showingMenuId)
         cancelEditMenuItem()
         alert('Menu item updated successfully!')
       } else {
-        setError('Failed to update menu item')
+        const errorMessage = response.error || 'Failed to update menu item'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to update menu item')
@@ -293,12 +313,15 @@ export default function Restaurant() {
       const res = await authenticatedFetch(`${API_URL}/api/restaurant/${restaurantId}/menu/${itemId}`, {
         method: 'DELETE',
       })
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+
+      if (res.ok && isResponseSuccess(response)) {
         // Refresh the menu items for the current restaurant
         await fetchMenuItems(restaurantId)
         alert('Menu item deleted successfully!')
       } else {
-        setError('Failed to delete menu item')
+        const errorMessage = response.error || 'Failed to delete menu item'
+        setError(errorMessage)
       }
     } catch {
       setError('Failed to delete menu item')

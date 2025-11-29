@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { API_URL } from '../config'
 import { formatCurrency } from '../utils/currency'
+import { handleApiResponse, isResponseSuccess } from '../utils/api'
 
 interface MenuItem {
   ID: number
@@ -64,20 +65,22 @@ export default function QRMenu() {
       try {
         // Fetch restaurant details
         const restaurantRes = await fetch(`${API_URL}/api/restaurant/${restaurantId}`)
-        if (restaurantRes.ok) {
-          const restaurantData = await restaurantRes.json()
-          setRestaurant(restaurantData)
+        const restaurantResponse = await handleApiResponse(restaurantRes)
+        if (restaurantRes.ok && isResponseSuccess(restaurantResponse)) {
+          setRestaurant(restaurantResponse.data)
         } else {
-          setError('Failed to load restaurant details')
+          const errorMessage = restaurantResponse.error || 'Failed to load restaurant details'
+          setError(errorMessage)
         }
 
         // Fetch menu items for the restaurant (public endpoint)
         const menuRes = await fetch(`${API_URL}/api/restaurants/${restaurantId}/menu`)
-        if (menuRes.ok) {
-          const menuData = await menuRes.json()
-          setMenuItems(menuData || [])
+        const menuResponse = await handleApiResponse(menuRes)
+        if (menuRes.ok && isResponseSuccess(menuResponse)) {
+          setMenuItems(menuResponse.data || [])
         } else {
-          setError('Failed to load menu')
+          const errorMessage = menuResponse.error || 'Failed to load menu'
+          setError(errorMessage)
         }
       } catch (err) {
         setError('Failed to load restaurant and menu')
@@ -209,13 +212,14 @@ export default function QRMenu() {
         body: JSON.stringify(orderPayload)
       })
 
-      if (res.ok) {
+      const response = await handleApiResponse(res)
+      if (res.ok && isResponseSuccess(response)) {
         setIsOrderPlaced(true)
         setCart([]) // Clear the cart
         alert('Order placed successfully!')
       } else {
-        const errorData = await res.json()
-        alert(`Failed to place order: ${errorData.message || 'Unknown error'}`)
+        const errorMessage = response.error || 'Failed to place order'
+        alert(`Failed to place order: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error placing order:', error)

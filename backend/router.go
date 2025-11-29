@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"order-system/handler"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,18 +9,18 @@ import (
 
 func healthCheck(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"status":  "ok",
-		"message": "Welcome to the Order-System API",
+		"success": true,
+		"data": fiber.Map{
+			"status":  "ok",
+			"message": "Welcome to the Order-System API",
+		},
+		"error": nil,
 	})
 }
 
 func setupRoutes(app *fiber.App) {
 	app.Get("/health", handler.HealthCheck)
-	app.Get("/ws/orders", websocket.New(handler.HandleOrderSocket, websocket.Config{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-	}))
+	app.Get("/ws/orders", websocket.New(handler.HandleOrderSocket))
 	api := app.Group("/api")
 
 	user := api.Group("/user")
