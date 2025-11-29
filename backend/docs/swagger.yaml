@@ -1,0 +1,1079 @@
+basePath: /
+definitions:
+  fiber.Map:
+    additionalProperties: true
+    type: object
+  handler.LoginRequest:
+    properties:
+      password:
+        description: 'required: true'
+        example: password123
+        type: string
+      username:
+        description: 'required: true'
+        example: john_doe
+        type: string
+    type: object
+  handler.MenuItem:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      name:
+        type: string
+      price:
+        type: number
+      quantity:
+        type: integer
+      restaurant_id:
+        type: integer
+    type: object
+  handler.Order:
+    properties:
+      customer_name:
+        type: string
+      id:
+        type: integer
+      order_items:
+        items:
+          $ref: '#/definitions/handler.OrderItem'
+        type: array
+      status:
+        type: string
+      table_id:
+        type: integer
+      total_amount:
+        type: number
+    type: object
+  handler.OrderItem:
+    properties:
+      id:
+        type: integer
+      menu_item_id:
+        type: integer
+      order_id:
+        type: integer
+      quantity:
+        type: integer
+      special_instructions:
+        type: string
+    type: object
+  handler.OrderResponse:
+    properties:
+      customer_name:
+        type: string
+      id:
+        type: integer
+      order_items:
+        items:
+          $ref: '#/definitions/handler.OrderItem'
+        type: array
+      restaurant_id:
+        type: integer
+      restaurant_name:
+        type: string
+      status:
+        type: string
+      table_id:
+        type: integer
+      total_amount:
+        type: number
+    type: object
+  handler.OrderStatusUpdate:
+    properties:
+      status:
+        example: completed
+        type: string
+    type: object
+  handler.RefreshRequest:
+    properties:
+      refresh_token:
+        description: 'required: true'
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh...
+        type: string
+    type: object
+  handler.RegisterRequest:
+    properties:
+      email:
+        description: 'required: true'
+        example: john@example.com
+        type: string
+      password:
+        description: 'required: true'
+        example: password123
+        type: string
+      role:
+        example: owner
+        type: string
+      username:
+        description: 'required: true'
+        example: john_doe
+        type: string
+    type: object
+  handler.Restaurant:
+    properties:
+      address:
+        type: string
+      id:
+        type: integer
+      logo_url:
+        type: string
+      name:
+        type: string
+      phone_number:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  handler.Table:
+    properties:
+      id:
+        type: integer
+      qr_code_url:
+        type: string
+      restaurant_id:
+        type: integer
+      table_number:
+        type: integer
+    type: object
+  handler.TokenResponse:
+    properties:
+      access_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      refresh_token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh...
+        type: string
+    type: object
+  handler.User:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: API for Order System with user authentication and restaurant management
+  title: Order System API
+  version: "1.0"
+paths:
+  /api/order:
+    get:
+      description: Get all orders for all restaurants belonging to the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.OrderResponse'
+            type: array
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving orders
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all user orders
+      tags:
+      - Order
+  /api/restaurant/:
+    get:
+      description: Get all restaurants for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.Restaurant'
+            type: array
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving restaurants
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all restaurants
+      tags:
+      - Restaurant
+    post:
+      consumes:
+      - application/json
+      description: Create a new restaurant for the authenticated user
+      parameters:
+      - description: Restaurant data
+        in: body
+        name: restaurant
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Restaurant'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.Restaurant'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Error creating restaurant
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a new restaurant
+      tags:
+      - Restaurant
+  /api/restaurant/{id}:
+    delete:
+      description: Delete a restaurant by ID
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: User or restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error deleting restaurant
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete restaurant
+      tags:
+      - Restaurant
+    get:
+      description: Get a restaurant by ID without authentication
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Restaurant'
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+      summary: Get public restaurant by ID
+      tags:
+      - Restaurant
+    put:
+      consumes:
+      - application/json
+      description: Update a restaurant by ID
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Restaurant data
+        in: body
+        name: restaurant
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Restaurant'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Restaurant'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: User or restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error updating restaurant
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update restaurant
+      tags:
+      - Restaurant
+  /api/restaurant/{restaurant_id}/menu:
+    get:
+      description: Get all menu items for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.MenuItem'
+            type: array
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving menu items
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all menu items
+      tags:
+      - Menu
+    post:
+      consumes:
+      - application/json
+      description: Create a new menu item for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Menu item data
+        in: body
+        name: menu_item
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MenuItem'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.MenuItem'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error creating menu item
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a new menu item
+      tags:
+      - Menu
+  /api/restaurant/{restaurant_id}/menu/{id}:
+    delete:
+      description: Delete a menu item
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Restaurant or menu item not found
+          schema:
+            type: string
+        "500":
+          description: Error deleting menu item
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete a menu item
+      tags:
+      - Menu
+    put:
+      consumes:
+      - application/json
+      description: Update a menu item
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Menu item data
+        in: body
+        name: menu_item
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MenuItem'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.MenuItem'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant or menu item not found
+          schema:
+            type: string
+        "500":
+          description: Error updating menu item
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update a menu item
+      tags:
+      - Menu
+  /api/restaurant/{restaurant_id}/order:
+    get:
+      description: Get all orders for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.Order'
+            type: array
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving orders
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all orders
+      tags:
+      - Order
+    post:
+      consumes:
+      - application/json
+      description: Create a new order for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Order data
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Order'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.Order'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant, table, or menu item not found
+          schema:
+            type: string
+        "500":
+          description: Error creating order
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a new order
+      tags:
+      - Order
+  /api/restaurant/{restaurant_id}/order/{id}:
+    delete:
+      description: Delete an order
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Restaurant or order not found
+          schema:
+            type: string
+        "500":
+          description: Error deleting order
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete an order
+      tags:
+      - Order
+    get:
+      description: Get a single order by ID
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Order'
+        "404":
+          description: Restaurant or order not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving order
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get order by ID
+      tags:
+      - Order
+    patch:
+      consumes:
+      - application/json
+      description: Update the status of an order
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Order status
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/handler.OrderStatusUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Order'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant or order not found
+          schema:
+            type: string
+        "500":
+          description: Error updating order
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update order status
+      tags:
+      - Order
+  /api/restaurant/{restaurant_id}/table:
+    get:
+      description: Get all tables for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.Table'
+            type: array
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving tables
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all tables
+      tags:
+      - Table
+    post:
+      consumes:
+      - application/json
+      description: Create a new table for a restaurant
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Table data
+        in: body
+        name: table
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Table'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.Table'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error creating table
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a new table
+      tags:
+      - Table
+  /api/restaurant/{restaurant_id}/table/{id}:
+    delete:
+      description: Delete a table
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "404":
+          description: Restaurant or table not found
+          schema:
+            type: string
+        "500":
+          description: Error deleting table
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete a table
+      tags:
+      - Table
+    put:
+      consumes:
+      - application/json
+      description: Update a table
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Table ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Table data
+        in: body
+        name: table
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Table'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.Table'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant or table not found
+          schema:
+            type: string
+        "500":
+          description: Error updating table
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update a table
+      tags:
+      - Table
+  /api/restaurants/{restaurant_id}/menu:
+    get:
+      description: Get all menu items for a restaurant without authentication
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.MenuItem'
+            type: array
+        "404":
+          description: Restaurant not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving menu items
+          schema:
+            type: string
+      summary: Get public menu items
+      tags:
+      - Menu
+  /api/restaurants/{restaurant_id}/order:
+    post:
+      consumes:
+      - application/json
+      description: Create a new order for a restaurant without authentication
+      parameters:
+      - description: Restaurant ID
+        in: path
+        name: restaurant_id
+        required: true
+        type: string
+      - description: Order data
+        in: body
+        name: order
+        required: true
+        schema:
+          $ref: '#/definitions/handler.Order'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handler.Order'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "404":
+          description: Restaurant, table, or menu item not found
+          schema:
+            type: string
+        "500":
+          description: Error creating order
+          schema:
+            type: string
+      summary: Create a public order
+      tags:
+      - Order
+  /api/table:
+    get:
+      description: Get all tables for all restaurants belonging to the user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.Table'
+            type: array
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Error retrieving tables
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get all user tables
+      tags:
+      - Table
+  /api/user/:
+    delete:
+      description: Delete the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Could not retrieve or delete user
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - User
+    get:
+      description: Get all registered users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handler.User'
+            type: array
+        "500":
+          description: Could not retrieve users
+          schema:
+            type: string
+      summary: Get all users
+      tags:
+      - User
+  /api/user/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with username and password to get JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/fiber.Map'
+        "401":
+          description: Invalid username or password
+          schema:
+            type: string
+      summary: User login
+      tags:
+      - User
+  /api/user/profile:
+    get:
+      description: Get the profile of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.User'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - User
+  /api/user/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get new access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refresh
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.TokenResponse'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            type: string
+      summary: Refresh access token
+      tags:
+      - User
+  /api/user/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account
+      parameters:
+      - description: User registration data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/fiber.Map'
+        "400":
+          description: Invalid input
+          schema:
+            type: string
+        "409":
+          description: Username or email already taken
+          schema:
+            type: string
+      summary: Register a new user
+      tags:
+      - User
+  /health:
+    get:
+      description: Check if the API is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/fiber.Map'
+      summary: Health check endpoint
+      tags:
+      - Health
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

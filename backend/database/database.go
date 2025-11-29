@@ -29,8 +29,7 @@ func ConnectDB() {
 	}
 
 	// Auto create tables
-	// err = DB.AutoMigrate(&models.Note{}, &models.User{})
-	err = DB.AutoMigrate(&models.User{}, &models.Task{}, &models.Role{}, &models.Tenant{}, &models.UserTenantRole{}, &models.MenuItem{})
+	err = DB.AutoMigrate(&models.User{}, &models.Restaurant{}, &models.Table{}, &models.MenuItem{}, &models.Order{}, &models.OrderItem{}, &models.Payment{})
 
 	if err != nil {
 		panic("Failed to migrate database!")

@@ -1,21 +1,45 @@
 package handler
 
 import (
+	"errors"
+	"fmt"
 	"order-system/database"
 	"order-system/models"
+	"os"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var secretKey = "mysecretkey"               // In production, use an environment variable for the secret key.
-var refreshSecretKey = "myrefreshsecretkey" // For refresh tokens
+// HealthCheck godoc
+// @Summary Health check endpoint
+// @Description Check if the API is running
+// @Tags Health
+// @Produce json
+// @Success 200 {object} fiber.Map
+// @Router /health [get]
+func HealthCheck(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"status":  "ok",
+		"message": "Welcome to the Order-System API",
+	})
+}
+
+var secretKey = getEnvOrDefault("JWT_SECRET", "mysecretkey")                       // In production, use an environment variable for the secret key.
+var refreshSecretKey = getEnvOrDefault("JWT_REFRESH_SECRET", "myrefreshsecretkey") // For refresh tokens
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 // Generate Access Token
 func generateAccessToken(username string) (string, error) {
@@ -47,13 +71,23 @@ func generateRefreshToken(username string) (string, error) {
 	return t, nil
 }
 
-// Handler for registration (creating new user)
+// Register godoc
+// @Summary Register a new user
+// @Description Register a new user account
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param user body RegisterRequest true "User registration data"
+// @Success 201 {object} fiber.Map
+// @Failure 400 {string} string "Invalid input"
+// @Failure 409 {string} string "Username or email already taken"
+// @Router /api/user/register [post]
 func Register(c *fiber.Ctx) error {
 	var registerRequest struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
-		Name     string `json:"name"`
 		Email    string `json:"email"`
+		Role     string `json:"role"`
 	}
 
 	// Parse the registration data
@@ -66,7 +100,7 @@ func Register(c *fiber.Ctx) error {
 	err := database.DB.Where("username = ?", registerRequest.Username).First(&existingUser).Error
 	if err == nil {
 		return c.Status(fiber.StatusConflict).SendString("Username already taken")
-	} else if err != nil && err.Error() != "record not found" && err != gorm.ErrRecordNotFound {
+	} else if err != gorm.ErrRecordNotFound {
 		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
 	}
 
@@ -75,7 +109,7 @@ func Register(c *fiber.Ctx) error {
 	err = database.DB.Where("email = ?", registerRequest.Email).First(&existingEmailUser).Error
 	if err == nil {
 		return c.Status(fiber.StatusConflict).SendString("Email already registered")
-	} else if err != nil && err.Error() != "record not found" && err != gorm.ErrRecordNotFound {
+	} else if err != gorm.ErrRecordNotFound {
 		return c.Status(fiber.StatusInternalServerError).SendString("Database error")
 	}
 
@@ -86,11 +120,15 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	// Create a new user and save to the database
+	role := registerRequest.Role
+	if role == "" {
+		role = "owner"
+	}
 	user := models.User{
 		Username: registerRequest.Username,
 		Password: string(hashedPassword),
-		Name:     registerRequest.Name,
 		Email:    registerRequest.Email,
+		Role:     role,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -99,12 +137,27 @@ func Register(c *fiber.Ctx) error {
 
 	// Return success response
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":  "success",
 		"message": "User created successfully",
-		"user":    user,
+		"data": fiber.Map{
+			"user_id":  user.ID,
+			"username": user.Username,
+			"email":    user.Email,
+			"role":     user.Role,
+		},
 	})
 }
 
-// Handler for login (creating JWT and refresh token)
+// Login godoc
+// @Summary User login
+// @Description Login with username and password to get JWT tokens
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param credentials body LoginRequest true "Login credentials"
+// @Success 200 {object} fiber.Map
+// @Failure 401 {string} string "Invalid username or password"
+// @Router /api/user/login [post]
 func Login(c *fiber.Ctx) error {
 	var loginRequest struct {
 		Username string `json:"username"`
@@ -116,7 +169,7 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	var dbUser models.User
-	err := database.DB.Where("username = ?", loginRequest.Username).First(&dbUser).Error
+	err := database.DB.Where("username = ?", loginRequest.Username).Preload("Restaurants").First(&dbUser).Error
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("Invalid username or password")
 	}
@@ -136,42 +189,60 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Error generating refresh token")
 	}
 
-	// Return both tokens to the user
+	// Build restaurant response (nil if no restaurant)
+	var restaurantData interface{}
+	if len(dbUser.Restaurants) > 0 {
+		firstRestaurant := dbUser.Restaurants[0]
+		restaurantData = fiber.Map{
+			"restaurant_id": firstRestaurant.ID,
+			"name":          firstRestaurant.Name,
+			"address":       firstRestaurant.Address,
+			"phone_number":  firstRestaurant.PhoneNumber,
+		}
+	}
+
+	// Return response
 	return c.JSON(fiber.Map{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		"status":  "success",
+		"message": "Login successful",
+		"data": fiber.Map{
+			"user_id":       dbUser.ID,
+			"username":      dbUser.Username,
+			"email":         dbUser.Email,
+			"role":          dbUser.Role,
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"restaurant":    restaurantData,
+		},
 	})
 }
 
 // Middleware to protect routes using Access Token
 func ProtectRoute(c *fiber.Ctx) error {
-	tokenString := c.Get("Authorization")
-
-	if len(tokenString) < 7 || tokenString[:7] != "Bearer " {
-		return c.Status(fiber.StatusUnauthorized).SendString("Missing or malformed token")
-	}
-	tokenString = tokenString[7:] // Remove the "Bearer " part
-
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
-		return []byte(secretKey), nil
-	})
-
-	if err != nil || !token.Valid {
-		return c.Status(fiber.StatusUnauthorized).SendString("Invalid or expired token")
+	tokenString, err := extractBearerToken(c.Get("Authorization"))
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 	}
 
-	claims := token.Claims.(jwt.MapClaims)
-	username := claims["username"].(string)
+	username, err := ValidateAccessToken(tokenString)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
+	}
 
 	c.Locals("username", username)
 
 	return c.Next()
 }
 
-// Protected route to return user profile
+// Profile godoc
+// @Summary Get user profile
+// @Description Get the profile of the authenticated user
+// @Tags User
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} User
+// @Failure 401 {string} string "Unauthorized"
+// @Router /api/user/profile [get]
 func Profile(c *fiber.Ctx) error {
 	username := c.Locals("username").(string)
 
@@ -182,12 +253,22 @@ func Profile(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"name":  user.Name,
-		"email": user.Email,
+		"username": user.Username,
+		"email":    user.Email,
+		"role":     user.Role,
 	})
 }
 
-// Handler for refresh token (get a new access token using the refresh token)
+// RefreshToken godoc
+// @Summary Refresh access token
+// @Description Get new access token using refresh token
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param refresh body RefreshRequest true "Refresh token"
+// @Success 200 {object} TokenResponse
+// @Failure 401 {string} string "Invalid or expired refresh token"
+// @Router /api/user/refresh [post]
 func RefreshToken(c *fiber.Ctx) error {
 	var refreshRequest struct {
 		RefreshToken string `json:"refresh_token"`
@@ -234,6 +315,45 @@ func RefreshToken(c *fiber.Ctx) error {
 	})
 }
 
+func extractBearerToken(raw string) (string, error) {
+	if raw == "" {
+		return "", errors.New("missing token")
+	}
+	if len(raw) >= 7 && strings.ToLower(raw[:7]) == "bearer " {
+		return raw[7:], nil
+	}
+	return raw, nil
+}
+
+func ValidateAccessToken(tokenString string) (string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return []byte(secretKey), nil
+	})
+	if err != nil {
+		return "", errors.New("invalid or expired token")
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return "", errors.New("invalid or expired token")
+	}
+	username, ok := claims["username"].(string)
+	if !ok {
+		return "", errors.New("invalid token claims")
+	}
+	return username, nil
+}
+
+// GetAllUsers godoc
+// @Summary Get all users
+// @Description Get all registered users
+// @Tags User
+// @Produce json
+// @Success 200 {array} User
+// @Failure 500 {string} string "Could not retrieve users"
+// @Router /api/user/ [get]
 func GetAllUsers(c *fiber.Ctx) error {
 	var users []models.User
 	err := database.DB.Find(&users).Error
@@ -242,4 +362,28 @@ func GetAllUsers(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(users)
+}
+
+// DeleteUser godoc
+// @Summary Delete user
+// @Description Delete the authenticated user
+// @Tags User
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} string
+// @Failure 500 {string} string "Could not retrieve or delete user"
+// @Router /api/user/ [delete]
+func DeleteUser(c *fiber.Ctx) error {
+	username := c.Locals("username").(string)
+
+	var user models.User
+	err := database.DB.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Could not retrieve user")
+	}
+	if err := database.DB.Delete(&user).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString("Could not delete user")
+	}
+
+	return c.SendStatus(fiber.StatusOK)
 }

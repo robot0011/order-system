@@ -1,0 +1,12 @@
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--accent-highlight);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}

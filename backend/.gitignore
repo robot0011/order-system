@@ -8,6 +8,13 @@
 *.test
 *.out
 
+# Logs
+logs
+*.log
+
+# Build artifacts
+coverage/
+
 # Output of the go coverage tool
 *.coverprofile
 
@@ -22,6 +29,12 @@ go.work.sum
 .idea/
 .vscode/
 *.swp
+
+# Local config
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # OS generated files
 .DS_Store
